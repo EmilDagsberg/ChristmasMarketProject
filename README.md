@@ -1,4 +1,73 @@
 # ChristmasMarketProject
+
+## Environment Setup
+
+This project uses three different places for configuration:
+
+### 1. Local development: `.env`
+
+Create a local `.env` file in the project root.
+This file contains your real secrets and must never be committed.
+
+Example local variables:
+
+```env
+PORT=8787
+APPLICATION_EMAIL_TO=your_destination_email@example.com
+
+OPENAI_API_KEY=your_real_openai_api_key
+OPENAI_MODEL=gpt-5.5
+
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=apikey
+SMTP_PASS=your_real_sendgrid_api_key
+SMTP_FROM=your_verified_sender@example.com
+```
+
+### 2. Repository template: `.env.example`
+
+Use `.env.example` as the safe template that can be committed to GitHub.
+It should only contain placeholder values, never real keys.
+
+### 3. GitHub Secrets
+
+If the project is later deployed through GitHub Actions, Vercel, Render, Railway, or another CI/CD flow, store secrets in GitHub repository secrets.
+
+Recommended GitHub secret names:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `APPLICATION_EMAIL_TO`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+
+### Rules
+
+- `.env` stays local only
+- `.env.example` is committed
+- GitHub Secrets are used for deployment or CI
+- never paste real keys into source files, README, or commits
+- if a key was ever committed, rotate it immediately
+
+### Local run
+
+From the project folder, run:
+
+```powershell
+npm run server
+```
+
+In a second terminal:
+
+```powershell
+npm run dev
+```
 Projektets arbejdstitel: Thor og Emils Julemarkeds løsning.
 
 Problem:
