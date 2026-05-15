@@ -530,6 +530,12 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+.button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+  transform: none;
+}
+
 .button-primary {
   background: var(--green);
   color: white;
@@ -556,6 +562,15 @@ textarea:focus {
   font-weight: 700;
 }
 
+.form-status {
+  margin: 1rem 0 0;
+  font-weight: 700;
+}
+
+.form-status-error {
+  color: #8f2f1f;
+}
+
 .application-sidebar {
   display: grid;
   gap: 1rem;
@@ -569,6 +584,35 @@ textarea:focus {
 
 .success-card {
   background: linear-gradient(180deg, #f8fbf2 0%, #f1f7e7 100%);
+}
+
+.result-block + .result-block {
+  margin-top: 1rem;
+}
+
+.result-primary {
+  margin: 0.2rem 0 0.45rem;
+  color: var(--text);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(88, 116, 71, 0.12);
+  color: var(--green-dark);
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .preview-list {
