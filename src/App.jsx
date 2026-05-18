@@ -46,6 +46,12 @@ const imageUrls = {
     "https://commons.wikimedia.org/wiki/Special:Redirect/file/Market_stall_in_Strasbourg.jpg"
 };
 
+const contactDetails = {
+  name: "Emil Dagsberg",
+  email: "emildagsberg@hotmail.dk",
+  addressLines: ["Engestofte Gods", "Søvej 10", "4930 Maribo"]
+};
+
 const schedule = [
   {
     title: "Begge dage (2025)",
@@ -85,11 +91,11 @@ const applicationSteps = [
   },
   {
     title: "2. Gennemgang hos Emil",
-    text: "I en rigtig løsning lander ansøgningen i et overblik med status, noter og opfølgning."
+    text: "Ansøgningen sendes automatisk som e-mail og kan samtidig få en AI-forslået kategori og tags."
   },
   {
-    title: "3. Svar til stadeholderen",
-    text: "Systemet kan senere sende kvittering, forespørgsler om manglende info og endelig afgørelse."
+    title: "3. Brug kategorien videre",
+    text: "Den samme kategori kan bruges senere til filtre på stadeholderliste, kort og besøgersøgning."
   }
 ];
 
@@ -114,7 +120,7 @@ const initialForm = {
 const previewFields = [
   ["companyName", "Virksomhed"],
   ["contactName", "Kontaktperson"],
-  ["category", "Kategori"],
+  ["category", "Egen kategori"],
   ["placement", "Placering"],
   ["previousParticipation", "Tidligere deltagelse"],
   ["powerNeed", "Strøm"]
@@ -171,7 +177,7 @@ function Header() {
           >
             Restaurant Værkstedet
           </a>
-          <a href="mailto:emildagsberg@hotmail.dk" className="masthead-button">
+          <a href={`mailto:${contactDetails.email}`} className="masthead-button">
             Kontakt
           </a>
         </div>
@@ -224,16 +230,16 @@ function Footer() {
     <footer className="site-footer" id="kontakt">
       <div>
         <p className="eyebrow">Kontakt</p>
-        <p className="footer-heading">Emil Dagsberg</p>
-        <a href="mailto:emildagsberg@hotmail.dk">emildagsberg@hotmail.dk</a>
+        <p className="footer-heading">{contactDetails.name}</p>
+        <a href={`mailto:${contactDetails.email}`}>{contactDetails.email}</a>
         <p className="footer-note">Demo-kontakt til test af stadeholderflowet.</p>
       </div>
 
       <div>
         <p className="eyebrow">Adresse</p>
-        <p className="footer-heading">Engestofte Gods</p>
-        <p>Søvej 10</p>
-        <p>4930 Maribo</p>
+        <p className="footer-heading">{contactDetails.addressLines[0]}</p>
+        <p>{contactDetails.addressLines[1]}</p>
+        <p>{contactDetails.addressLines[2]}</p>
       </div>
     </footer>
   );
@@ -370,9 +376,9 @@ function HomePage() {
 
           <div>
             <p className="panel-label">Kontakt</p>
-            <p>Emil Dagsberg</p>
-            <p>emildagsberg@hotmail.dk</p>
-            <p>Engestofte Gods, Søvej 10, 4930 Maribo</p>
+            <p>{contactDetails.name}</p>
+            <p>{contactDetails.email}</p>
+            <p>{contactDetails.addressLines.join(", ")}</p>
           </div>
         </div>
       </section>
@@ -429,10 +435,53 @@ function ProgramPage() {
   );
 }
 
+function ApplicationResult({ result }) {
+  if (!result) {
+    return null;
+  }
+
+  const emailWasSent = result.email?.sent;
+  const classification = result.classification;
+
+  return (
+    <div className="sidebar-card success-card">
+      <p className="panel-label">Kvittering</p>
+      <h3>{emailWasSent ? "Ansøgningen er sendt" : "Ansøgningen er modtaget"}</h3>
+      <p>{result.message}</p>
+
+      {classification ? (
+        <div className="result-block">
+          <p className="panel-label">AI-kategorisering</p>
+          <p className="result-primary">{classification.primaryCategory}</p>
+          <p>{classification.reasoning}</p>
+          {classification.tags?.length ? (
+            <div className="tag-list">
+              {classification.tags.map((tag) => (
+                <span className="tag-chip" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {result.email?.fallbackDraft ? (
+        <a className="inline-link" href={result.email.fallbackDraft}>
+          Åbn fallback-mail
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 function VendorsPage() {
   const [formData, setFormData] = useState(initialForm);
   const [savedMessage, setSavedMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submissionResult, setSubmissionResult] = useState(null);
 
   useEffect(() => {
     const draft = window.localStorage.getItem("engestofteVendorDraft");
@@ -461,6 +510,8 @@ function VendorsPage() {
     const { name, type, checked, value } = event.target;
     setSubmitted(false);
     setSavedMessage("");
+    setSubmitError("");
+    setSubmissionResult(null);
     setFormData((current) => ({
       ...current,
       [name]: type === "checkbox" ? checked : value
@@ -472,12 +523,41 @@ function VendorsPage() {
     setSavedMessage("Kladde gemt lokalt på enheden");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    window.localStorage.removeItem("engestofteVendorDraft");
+    setIsSubmitting(true);
+    setSubmitError("");
     setSavedMessage("");
-    setSubmitted(true);
-    setFormData(initialForm);
+    setSubmissionResult(null);
+
+    try {
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Der opstod en fejl under indsendelsen.");
+      }
+
+      window.localStorage.removeItem("engestofteVendorDraft");
+      setSubmitted(true);
+      setSubmissionResult(payload);
+      setFormData(initialForm);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Der opstod en fejl under indsendelsen. Prøv igen."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -496,8 +576,8 @@ function VendorsPage() {
       <section className="content-section intro-section">
         <h2>På denne side finder du alle informationer omkring stader til årets julemarked</h2>
         <p>
-          Skulle der være information som du ikke kan finde her, så kontakt venligst Emil Dagsberg
-          på mail: emildagsberg@hotmail.dk.
+          Skulle der være information som du ikke kan finde her, så kontakt venligst{" "}
+          {contactDetails.name} på mail: {contactDetails.email}.
         </p>
       </section>
 
@@ -526,8 +606,8 @@ function VendorsPage() {
         <h3>Tilmelding</h3>
         <p>
           Hvis I ønsker at få en stand til dette års julemarked på Engestofte bedes I indsende et
-          ansøgningsskema. I denne demo kan det gøres direkte her på siden i stedet for først at
-          sende en mail og vente på et separat formularark.
+          ansøgningsskema. I denne version sendes det til en backend, som forsøger at sende
+          ansøgningen videre som e-mail og samtidig foreslår en besøgsvenlig kategori.
         </p>
 
         <h3>Ansøgningsfrist</h3>
@@ -601,6 +681,11 @@ function VendorsPage() {
             Ideen er at bevare Engestoftes nuværende informationsside næsten som den er, men gøre
             første kontakt med nye virksomheder langt mindre manuel.
           </p>
+          <p>
+            I denne version forsøger systemet at sende ansøgningen automatisk til{" "}
+            {contactDetails.email}. Samtidig bruges AI til at foreslå en bred kategori og tags, som
+            senere kan bruges på besøgersiderne.
+          </p>
         </div>
 
         <div className="step-grid">
@@ -655,18 +740,14 @@ function VendorsPage() {
               <h3>Stand og sortiment</h3>
               <div className="field-grid">
                 <label>
-                  Kategori
-                  <select name="category" value={formData.category} onChange={updateField} required>
-                    <option value="">Vælg kategori</option>
-                    <option value="Smykker">Smykker</option>
-                    <option value="Keramik">Keramik</option>
-                    <option value="Brugskunst">Brugskunst</option>
-                    <option value="Mad og drikke">Mad og drikke</option>
-                    <option value="Dekorationer">Dekorationer</option>
-                    <option value="Børn og aktiviteter">Børn og aktiviteter</option>
-                    <option value="Tekstiler">Tekstiler</option>
-                    <option value="Andet">Andet</option>
-                  </select>
+                  Egen kategori (valgfri)
+                  <input
+                    type="text"
+                    name="category"
+                    value={formData.category}
+                    onChange={updateField}
+                    placeholder="Fx honning, delikatesser, illustrationer eller keramik"
+                  />
                 </label>
 
                 <label>
@@ -749,15 +830,16 @@ function VendorsPage() {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="button button-primary">
-                Send ansøgning
+              <button type="submit" className="button button-primary" disabled={isSubmitting}>
+                {isSubmitting ? "Sender..." : "Send ansøgning"}
               </button>
-              <button type="button" className="button button-secondary" onClick={saveDraft}>
+              <button type="button" className="button button-secondary" onClick={saveDraft} disabled={isSubmitting}>
                 Gem kladde
               </button>
             </div>
 
             {savedMessage ? <p className="inline-message">{savedMessage}</p> : null}
+            {submitError ? <p className="form-status form-status-error">{submitError}</p> : null}
           </form>
 
           <aside className="application-sidebar">
@@ -775,23 +857,27 @@ function VendorsPage() {
             </div>
 
             <div className="sidebar-card">
-              <p className="panel-label">Kontakt</p>
-              <h3>Testkontakt i demoen</h3>
-              <p>Emil Dagsberg</p>
-              <a href="mailto:emildagsberg@hotmail.dk">emildagsberg@hotmail.dk</a>
-              <p>Adresse beholdes som Engestofte Gods, Søvej 10, 4930 Maribo.</p>
+              <p className="panel-label">AI i denne del</p>
+              <h3>Kategorisering uden faste felter</h3>
+              <p>
+                AI læser virksomhedens beskrivelse og foreslår en bred besøgerkategori som fx Mad,
+                Drikke, Keramik, Smykker eller Børn & aktiviteter.
+              </p>
+              <p>
+                Det gør det lettere at finde stands senere, uden at Lise behøver at opfinde nye
+                felter hver gang der kommer en anderledes virksomhed.
+              </p>
             </div>
 
-            {submitted ? (
-              <div className="sidebar-card success-card">
-                <p className="panel-label">Kvittering</p>
-                <h3>Ansøgningen er registreret</h3>
-                <p>
-                  Tak for jeres ansøgning til Engestofte Julemarked. I en fuld løsning ville den nu
-                  blive lagt i et admin-overblik og udløse en kvitteringsmail.
-                </p>
-              </div>
-            ) : null}
+            <div className="sidebar-card">
+              <p className="panel-label">Kontakt</p>
+              <h3>Testkontakt i demoen</h3>
+              <p>{contactDetails.name}</p>
+              <a href={`mailto:${contactDetails.email}`}>{contactDetails.email}</a>
+              <p>Adresse beholdes som {contactDetails.addressLines.join(", ")}.</p>
+            </div>
+
+            {submitted ? <ApplicationResult result={submissionResult} /> : null}
           </aside>
         </div>
       </section>
